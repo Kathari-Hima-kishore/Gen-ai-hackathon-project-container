@@ -8,7 +8,8 @@ import { nanoid } from "nanoid";
 // When building the server bundle to CommonJS, `import.meta.url` is not available.
 // Use process.cwd() to resolve project root at runtime which works in both dev
 // (ESM) and production (CJS) builds.
-const __dirname = process.cwd();
+// projectRoot is the repository root at runtime (works in both dev and built CJS)
+const projectRoot = process.cwd();
 
 const viteLogger = createLogger();
 
@@ -49,12 +50,10 @@ export async function setupVite(app: Express, server: Server) {
     const url = req.originalUrl;
 
     try {
-      const clientTemplate = path.resolve(
-        __dirname,
-        "..",
-        "client",
-        "index.html",
-      );
+      const clientTemplate = path.resolve(projectRoot, "client", "index.html");
+      // Log the resolved clientTemplate so deploy logs show where we read index.html from
+      log(`projectRoot=${projectRoot}`, "startup");
+      log(`clientTemplate=${clientTemplate}`, "startup");
 
       // always reload the index.html file from disk incase it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
@@ -72,9 +71,20 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(__dirname, "..", "dist", "public");
+  const distPath = path.resolve(projectRoot, "dist", "public");
+  // Log the resolved paths so Render logs reveal where the server expects static files
+  log(`projectRoot=${projectRoot}`, "startup");
+  log(`distPath=${distPath}`, "startup");
 
   if (!fs.existsSync(distPath)) {
+    log(`distPath missing: ${distPath}`, "startup");
+    // Provide a helpful directory listing for debugging
+    try {
+      const entries = fs.readdirSync(projectRoot);
+      log(`projectRoot entries: ${entries.join(", ")}`, "startup");
+    } catch (err) {
+      log(`failed to read projectRoot contents: ${(err as Error).message}`, "startup");
+    }
     throw new Error(
       `Could not find the build directory: ${distPath}, make sure to build the client first`,
     );
