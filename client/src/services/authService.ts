@@ -225,45 +225,17 @@ export const uploadProfileImage = async (file: File): Promise<string> => {
   }
 
   try {
-    // Create a reference to the user's profile image
     const imageRef = ref(storage, `profile-images/${user.uid}/profile.jpg`);
-
-    // Upload the file
     const snapshot = await uploadBytes(imageRef, file);
-
-    // Get the download URL
     const downloadURL = await getDownloadURL(snapshot.ref);
-
     return downloadURL;
   } catch (error: any) {
     console.error('Firebase Storage upload failed:', error);
 
-    // Check if it's a CORS or network error
-    const isCorsError = error.code === 'storage/unauthorized' ||
-                       error.message?.includes('CORS') ||
-                       error.message?.includes('preflight') ||
-                       error.message?.includes('blocked by CORS') ||
-                       error.code === 'storage/canceled' ||
-                       error.name === 'TypeError';
-
-    if (isCorsError) {
-      console.log('CORS error detected, using localStorage fallback');
-    } else {
-      console.log('Non-CORS error, still trying fallback');
-    }
-
-    // Fallback: Convert to base64 and store in localStorage
-    try {
-      const base64 = await fileToBase64(file);
-      const localStorageKey = `profile_image_${user.uid}`;
-      localStorage.setItem(localStorageKey, base64);
-
-      // Return a data URL
-      return base64;
-    } catch (fallbackError) {
-      console.error('Fallback upload also failed:', fallbackError);
-      throw new AuthError('Failed to upload profile image. Please try again later.');
-    }
+    // Fallback: Store image as base64 in localStorage
+    const base64 = await fileToBase64(file);
+    localStorage.setItem(`profile_image_${user.uid}`, base64);
+    return base64;
   }
 };
 
@@ -275,7 +247,9 @@ const fileToBase64 = (file: File): Promise<string> => {
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = error => reject(error);
   });
-};// Upload banner image to Firebase Storage with fallback
+};
+
+// Upload banner image to Firebase Storage with fallback
 export const uploadBannerImage = async (file: File): Promise<string> => {
   const user = auth.currentUser;
   if (!user) {
@@ -283,45 +257,17 @@ export const uploadBannerImage = async (file: File): Promise<string> => {
   }
 
   try {
-    // Create a reference to the user's banner image
     const imageRef = ref(storage, `profile-images/${user.uid}/banner.jpg`);
-
-    // Upload the file
     const snapshot = await uploadBytes(imageRef, file);
-
-    // Get the download URL
     const downloadURL = await getDownloadURL(snapshot.ref);
-
     return downloadURL;
   } catch (error: any) {
     console.error('Firebase Storage banner upload failed:', error);
 
-    // Check if it's a CORS or network error
-    const isCorsError = error.code === 'storage/unauthorized' ||
-                       error.message?.includes('CORS') ||
-                       error.message?.includes('preflight') ||
-                       error.message?.includes('blocked by CORS') ||
-                       error.code === 'storage/canceled' ||
-                       error.name === 'TypeError';
-
-    if (isCorsError) {
-      console.log('CORS error detected, using localStorage fallback');
-    } else {
-      console.log('Non-CORS error, still trying fallback');
-    }
-
-    // Fallback: Convert to base64 and store in localStorage
-    try {
-      const base64 = await fileToBase64(file);
-      const localStorageKey = `banner_image_${user.uid}`;
-      localStorage.setItem(localStorageKey, base64);
-
-      // Return a data URL
-      return base64;
-    } catch (fallbackError) {
-      console.error('Fallback banner upload also failed:', fallbackError);
-      throw new AuthError('Failed to upload banner image. Please try again later.');
-    }
+    // Fallback: Store image as base64 in localStorage
+    const base64 = await fileToBase64(file);
+    localStorage.setItem(`banner_image_${user.uid}`, base64);
+    return base64;
   }
 };
 
