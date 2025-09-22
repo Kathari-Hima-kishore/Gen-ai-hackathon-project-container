@@ -8,7 +8,7 @@ import { MapPin, Package, ShoppingBag, LogOut, Loader2 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
-import { updateUserProfileData, getUserProfile, signOut } from "@/services/authService";
+import { updateUserProfileData, getUserProfile, signOut, uploadProfileImage } from "@/services/authService";
 
 export default function UserProfile() {
   const [, navigate] = useLocation();
@@ -99,11 +99,20 @@ export default function UserProfile() {
     );
   }
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setUserInfo(prev => ({ ...prev, avatar: imageUrl }));
+      try {
+        setLoading(true);
+        // Upload to Firebase Storage
+        const downloadURL = await uploadProfileImage(file);
+        // Set the avatar to the permanent URL
+        setUserInfo(prev => ({ ...prev, avatar: downloadURL }));
+      } catch (err: any) {
+        setError(err.message || 'Failed to upload image');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
