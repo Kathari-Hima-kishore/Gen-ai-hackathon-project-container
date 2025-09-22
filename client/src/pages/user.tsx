@@ -8,7 +8,7 @@ import { MapPin, Package, ShoppingBag, LogOut, Loader2 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
-import { updateUserProfileData, getUserProfile, signOut, uploadProfileImage } from "@/services/authService";
+import { updateUserProfileData, getUserProfile, signOut, uploadProfileImage, uploadBannerImage } from "@/services/authService";
 import { auth } from "@/lib/firebase";
 
 export default function UserProfile() {
@@ -18,8 +18,9 @@ export default function UserProfile() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userInfo, setUserInfo] = useState({
-    avatar: "https://imgs.search.brave.com/6sZRHCMMvfkvvYz9DA2pEU6KiPUo_ujBE-3bx41bjxo/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly93MC5w/ZWFrcHguY29tL3dh/bGxwYXBlci8yMDAv/MTAxMC9IRC13YWxs/cGFwZXItc3VzaGFu/dC1pcy1sZWFuaW5n/LWJhY2stb24td2Fs/bC13ZWFyaW5nLWJs/YWNrLW92ZXJjb2F0/LXN1c2hhbnQtc2lu/Z2gtcmFqcHV0LXRo/dW1ibmFpbC5qcGc",
+    avatar: "https://imgs.search.brave.com/6sZRHCMMvfkvvYz9DA2pEU6KiPUo_ujBE-3bx41bjxo/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly93MC5wZWFrcHguY29tL3dhbGxwYXBlci8yMDAvMTAxMC9IRC13YWxs/cGFwZXItc3VzaGFudC1pcy1sZWFuaW5nLWJhY2stb24td2FsbC13ZWFyaW5nLWJs/YWNrLW92ZXJjb2F0LXN1c2hhbnQtc2luZ2gtcmFqcHV0LXRo/dW1ibmFpbC5qcGc",
     banner: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1200&q=80",
+    bannerURL: "",
     name: "",
     email: "",
     phone: "",
@@ -36,9 +37,16 @@ export default function UserProfile() {
       setLoading(true);
       try {
         const profile = await getUserProfile();
+        
+        // Get banner URL from localStorage first, then Firestore, then default
+        const storedBannerURL = localStorage.getItem(`banner_${currentUser.uid}`);
+        const bannerURL = storedBannerURL || profile.bannerURL || "";
+        const bannerSrc = bannerURL || userInfo.banner;
+        
         setUserInfo({
           avatar: currentUser.photoURL || userInfo.avatar,
-          banner: userInfo.banner, // Keep default banner
+          banner: bannerSrc,
+          bannerURL: bannerURL,
           name: profile.fullName,
           email: profile.email,
           phone: profile.phone,
@@ -49,14 +57,22 @@ export default function UserProfile() {
         setAvatarUrl(currentUser.photoURL || userInfo.avatar);
       } catch (err) {
         console.error('Failed to load profile:', err);
-        // Use user data from auth context as fallback
-        setUserInfo(prev => ({
-          ...prev,
-          name: currentUser.displayName || '',
-          email: currentUser.email || '',
-          avatar: currentUser.photoURL || prev.avatar
-        }));
-        setAvatarUrl(currentUser.photoURL || userInfo.avatar);
+        // Use localStorage as fallback
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          const storedBannerURL = localStorage.getItem(`banner_${currentUser.uid}`);
+          const bannerSrc = storedBannerURL || userInfo.banner;
+          
+          setUserInfo(prev => ({
+            ...prev,
+            banner: bannerSrc,
+            bannerURL: storedBannerURL || "",
+            name: currentUser.displayName || '',
+            email: currentUser.email || '',
+            avatar: currentUser.photoURL || prev.avatar
+          }));
+          setAvatarUrl(currentUser.photoURL || userInfo.avatar);
+        }
       } finally {
         setLoading(false);
       }
@@ -65,6 +81,15 @@ export default function UserProfile() {
 
   // Load user profile on component mount
   useEffect(() => {
+    // First, try to load banner from localStorage immediately
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      const storedBannerURL = localStorage.getItem(`banner_${currentUser.uid}`);
+      if (storedBannerURL) {
+        setUserInfo(prev => ({ ...prev, banner: storedBannerURL, bannerURL: storedBannerURL }));
+      }
+    }
+    
     loadUserProfile();
   }, [user]);
 
@@ -77,8 +102,19 @@ export default function UserProfile() {
     try {
       await updateUserProfileData({
         fullName: userInfo.name,
-        photoURL: userInfo.avatar
+        photoURL: userInfo.avatar,
+        bannerURL: userInfo.bannerURL,
+        phone: userInfo.phone,
+        address: userInfo.address,
+        city: userInfo.city,
+        country: userInfo.country
       });
+      
+      // Also store in localStorage as backup
+      if (userInfo.bannerURL) {
+        localStorage.setItem(`banner_${user.uid}`, userInfo.bannerURL);
+      }
+      
       setIsEditing(false);
       // Reload profile to reflect changes
       await loadUserProfile();
@@ -91,6 +127,12 @@ export default function UserProfile() {
 
   const handleLogout = async () => {
     try {
+      // Clear localStorage banner before logout
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        localStorage.removeItem(`banner_${currentUser.uid}`);
+      }
+      
       await signOut();
       logout(); // Also call the context logout
       navigate('/login');
@@ -125,11 +167,27 @@ export default function UserProfile() {
     }
   };
 
-  const handleBannerUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBannerUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setUserInfo(prev => ({ ...prev, banner: imageUrl }));
+      try {
+        setLoading(true);
+        // Upload to Firebase Storage
+        const downloadURL = await uploadBannerImage(file);
+        
+        // Store in localStorage immediately for persistence
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          localStorage.setItem(`banner_${currentUser.uid}`, downloadURL);
+        }
+        
+        // Set the banner to the permanent URL
+        setUserInfo(prev => ({ ...prev, banner: downloadURL, bannerURL: downloadURL }));
+      } catch (err: any) {
+        setError(err.message || 'Failed to upload banner image');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -201,6 +259,7 @@ export default function UserProfile() {
               className="hidden"
               accept="image/*"
               onChange={handleBannerUpload}
+              disabled={!isEditing}
             />
           </div>
 
