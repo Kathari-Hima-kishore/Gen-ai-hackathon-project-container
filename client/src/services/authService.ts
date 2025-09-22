@@ -217,7 +217,7 @@ export const checkEmailAvailability = async (email: string): Promise<boolean> =>
   }
 };
 
-// Upload profile image to Firebase Storage
+// Upload profile image to Firebase Storage with fallback
 export const uploadProfileImage = async (file: File): Promise<string> => {
   const user = auth.currentUser;
   if (!user) {
@@ -227,21 +227,41 @@ export const uploadProfileImage = async (file: File): Promise<string> => {
   try {
     // Create a reference to the user's profile image
     const imageRef = ref(storage, `profile-images/${user.uid}/profile.jpg`);
-    
+
     // Upload the file
     const snapshot = await uploadBytes(imageRef, file);
-    
+
     // Get the download URL
     const downloadURL = await getDownloadURL(snapshot.ref);
-    
+
     return downloadURL;
   } catch (error: any) {
-    console.error('Image upload error:', error);
-    throw new AuthError('Failed to upload profile image');
+    console.error('Firebase Storage upload failed, trying fallback:', error);
+
+    // Fallback: Convert to base64 and store in localStorage
+    try {
+      const base64 = await fileToBase64(file);
+      const localStorageKey = `profile_image_${user.uid}`;
+      localStorage.setItem(localStorageKey, base64);
+
+      // Return a data URL
+      return base64;
+    } catch (fallbackError) {
+      console.error('Fallback upload also failed:', fallbackError);
+      throw new AuthError('Failed to upload profile image. Please try again later.');
+    }
   }
 };
 
-// Upload banner image to Firebase Storage
+// Helper function to convert file to base64
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
+};// Upload banner image to Firebase Storage with fallback
 export const uploadBannerImage = async (file: File): Promise<string> => {
   const user = auth.currentUser;
   if (!user) {
@@ -251,17 +271,29 @@ export const uploadBannerImage = async (file: File): Promise<string> => {
   try {
     // Create a reference to the user's banner image
     const imageRef = ref(storage, `profile-images/${user.uid}/banner.jpg`);
-    
+
     // Upload the file
     const snapshot = await uploadBytes(imageRef, file);
-    
+
     // Get the download URL
     const downloadURL = await getDownloadURL(snapshot.ref);
-    
+
     return downloadURL;
   } catch (error: any) {
-    console.error('Banner upload error:', error);
-    throw new AuthError('Failed to upload banner image');
+    console.error('Firebase Storage banner upload failed, trying fallback:', error);
+
+    // Fallback: Convert to base64 and store in localStorage
+    try {
+      const base64 = await fileToBase64(file);
+      const localStorageKey = `banner_image_${user.uid}`;
+      localStorage.setItem(localStorageKey, base64);
+
+      // Return a data URL
+      return base64;
+    } catch (fallbackError) {
+      console.error('Fallback banner upload also failed:', fallbackError);
+      throw new AuthError('Failed to upload banner image. Please try again later.');
+    }
   }
 };
 
