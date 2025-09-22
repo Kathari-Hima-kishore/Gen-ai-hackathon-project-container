@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { updateUserProfileData, getUserProfile, signOut, uploadProfileImage } from "@/services/authService";
+import { auth } from "@/lib/firebase";
 
 export default function UserProfile() {
   const [, navigate] = useLocation();
@@ -30,12 +31,13 @@ export default function UserProfile() {
 
   // Load user profile function
   const loadUserProfile = async () => {
-    if (user) {
+    const currentUser = auth.currentUser;
+    if (currentUser) {
       setLoading(true);
       try {
         const profile = await getUserProfile();
         setUserInfo({
-          avatar: profile.photoURL || userInfo.avatar,
+          avatar: currentUser.photoURL || userInfo.avatar,
           banner: userInfo.banner, // Keep default banner
           name: profile.fullName,
           email: profile.email,
@@ -44,17 +46,17 @@ export default function UserProfile() {
           city: profile.city,
           country: profile.country
         });
-        setAvatarUrl(profile.photoURL || userInfo.avatar);
+        setAvatarUrl(currentUser.photoURL || userInfo.avatar);
       } catch (err) {
         console.error('Failed to load profile:', err);
         // Use user data from auth context as fallback
         setUserInfo(prev => ({
           ...prev,
-          name: user.displayName || '',
-          email: user.email || '',
-          avatar: user.photoURL || prev.avatar
+          name: currentUser.displayName || '',
+          email: currentUser.email || '',
+          avatar: currentUser.photoURL || prev.avatar
         }));
-        setAvatarUrl(user.photoURL || userInfo.avatar);
+        setAvatarUrl(currentUser.photoURL || userInfo.avatar);
       } finally {
         setLoading(false);
       }
@@ -226,6 +228,7 @@ export default function UserProfile() {
                 className="hidden"
                 accept="image/*"
                 onChange={handleImageUpload}
+                disabled={!isEditing}
               />
             </div>
           </div>
