@@ -39,7 +39,7 @@ export default function UserProfile() {
         const profile = await getUserProfile();
 
         // Get banner URL from localStorage first, then Firestore, then default
-        const storedBannerURL = localStorage.getItem(`banner_${currentUser.uid}`) || localStorage.getItem(`banner_image_${currentUser.uid}`);
+        const storedBannerURL = localStorage.getItem(`banner_image_${currentUser.uid}`);
         const bannerURL = storedBannerURL || profile.bannerURL || "";
         const bannerSrc = bannerURL || userInfo.banner;
 
@@ -63,7 +63,7 @@ export default function UserProfile() {
         // Use localStorage as fallback
         const currentUser = auth.currentUser;
         if (currentUser) {
-          const storedBannerURL = localStorage.getItem(`banner_${currentUser.uid}`) || localStorage.getItem(`banner_image_${currentUser.uid}`);
+          const storedBannerURL = localStorage.getItem(`banner_image_${currentUser.uid}`);
           const storedProfileURL = localStorage.getItem(`profile_image_${currentUser.uid}`);
           const bannerSrc = storedBannerURL || userInfo.banner;
 
@@ -88,7 +88,7 @@ export default function UserProfile() {
     // First, try to load images from localStorage immediately
     const currentUser = auth.currentUser;
     if (currentUser) {
-      const storedBannerURL = localStorage.getItem(`banner_${currentUser.uid}`) || localStorage.getItem(`banner_image_${currentUser.uid}`);
+      const storedBannerURL = localStorage.getItem(`banner_image_${currentUser.uid}`);
       const storedProfileURL = localStorage.getItem(`profile_image_${currentUser.uid}`);
 
       if (storedBannerURL) {
@@ -135,12 +135,13 @@ export default function UserProfile() {
 
   const handleLogout = async () => {
     try {
-      // Clear localStorage banner before logout
+      // Clear localStorage images before logout
       const currentUser = auth.currentUser;
       if (currentUser) {
-        localStorage.removeItem(`banner_${currentUser.uid}`);
+        localStorage.removeItem(`banner_image_${currentUser.uid}`);
+        localStorage.removeItem(`profile_image_${currentUser.uid}`);
       }
-      
+
       await signOut();
       logout(); // Also call the context logout
       navigate('/login');
@@ -162,12 +163,20 @@ export default function UserProfile() {
     if (file) {
       try {
         setLoading(true);
-        // Upload to Firebase Storage
+        // Upload to Firebase Storage (will fallback to localStorage on CORS error)
         const downloadURL = await uploadProfileImage(file);
+
+        // Store in localStorage immediately for persistence
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          localStorage.setItem(`profile_image_${currentUser.uid}`, downloadURL);
+        }
+
         // Set the avatar to the permanent URL
         setUserInfo(prev => ({ ...prev, avatar: downloadURL }));
         setAvatarUrl(downloadURL);
       } catch (err: any) {
+        console.error('Profile image upload failed completely:', err);
         setError(err.message || 'Failed to upload image');
       } finally {
         setLoading(false);
@@ -180,18 +189,19 @@ export default function UserProfile() {
     if (file) {
       try {
         setLoading(true);
-        // Upload to Firebase Storage
+        // Upload to Firebase Storage (will fallback to localStorage on CORS error)
         const downloadURL = await uploadBannerImage(file);
-        
+
         // Store in localStorage immediately for persistence
         const currentUser = auth.currentUser;
         if (currentUser) {
-          localStorage.setItem(`banner_${currentUser.uid}`, downloadURL);
+          localStorage.setItem(`banner_image_${currentUser.uid}`, downloadURL);
         }
-        
+
         // Set the banner to the permanent URL
         setUserInfo(prev => ({ ...prev, banner: downloadURL, bannerURL: downloadURL }));
       } catch (err: any) {
+        console.error('Banner upload failed completely:', err);
         setError(err.message || 'Failed to upload banner image');
       } finally {
         setLoading(false);
