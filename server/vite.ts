@@ -5,10 +5,10 @@ import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// When building the server bundle to CommonJS, `import.meta.url` is not available.
+// Use process.cwd() to resolve project root at runtime which works in both dev
+// (ESM) and production (CJS) builds.
+const __dirname = process.cwd();
 
 const viteLogger = createLogger();
 
