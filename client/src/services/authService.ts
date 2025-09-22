@@ -48,6 +48,8 @@ const getAuthErrorMessage = (errorCode: string): string => {
       return 'No account found with this email address.';
     case 'auth/wrong-password':
       return 'Incorrect password. Please try again.';
+    case 'auth/invalid-credential':
+      return 'Invalid email or password.';
     case 'auth/user-disabled':
       return 'This account has been disabled.';
     case 'auth/too-many-requests':
