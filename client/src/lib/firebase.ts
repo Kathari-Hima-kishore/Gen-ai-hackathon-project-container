@@ -2,6 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getDatabase } from "firebase/database";
+import { getStorage } from "firebase/storage";
 import { getAnalytics } from "firebase/analytics";
 
 // Perfect Firebase configuration from Firebase - Auth folder
@@ -21,6 +22,7 @@ let app: any;
 let auth: any;
 let db: any;
 let realtimeDb: any;
+let storage: any;
 let analytics: any;
 let googleAuthProvider: any;
 
@@ -32,6 +34,7 @@ try {
   auth = getAuth(app);
   db = getFirestore(app);
   realtimeDb = getDatabase(app);
+  storage = getStorage(app);
   googleAuthProvider = new GoogleAuthProvider();
   
   // Configure Google Auth Provider with proper scopes
@@ -70,6 +73,7 @@ try {
   };
   
   realtimeDb = null;
+  storage = null;
   googleAuthProvider = {
     addScope: () => {},
     setCustomParameters: () => {}
@@ -90,4 +94,4 @@ export function firebaseConfigDebug() {
   };
 }
 
-export { app, auth, db, realtimeDb, analytics, googleAuthProvider };
+export { app, auth, db, realtimeDb, storage, analytics, googleAuthProvider };
