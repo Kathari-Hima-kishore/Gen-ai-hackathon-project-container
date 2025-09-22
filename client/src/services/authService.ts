@@ -248,6 +248,8 @@ export const updateUserProfileData = async (profileData: {
 
     if (Object.keys(updates).length > 0) {
       await updateProfile(user, updates);
+      // Reload user to ensure profile changes are reflected
+      await user.reload();
     }
 
     console.log('Profile updated successfully');
