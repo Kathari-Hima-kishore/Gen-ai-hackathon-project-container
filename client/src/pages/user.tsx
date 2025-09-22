@@ -27,38 +27,39 @@ export default function UserProfile() {
     country: ""
   });
 
+  // Load user profile function
+  const loadUserProfile = async () => {
+    if (user) {
+      setLoading(true);
+      try {
+        const profile = await getUserProfile();
+        setUserInfo({
+          avatar: profile.photoURL || userInfo.avatar,
+          banner: userInfo.banner, // Keep default banner
+          name: profile.fullName,
+          email: profile.email,
+          phone: profile.phone,
+          address: profile.address,
+          city: profile.city,
+          country: profile.country
+        });
+      } catch (err) {
+        console.error('Failed to load profile:', err);
+        // Use user data from auth context as fallback
+        setUserInfo(prev => ({
+          ...prev,
+          name: user.displayName || '',
+          email: user.email || '',
+          avatar: user.photoURL || prev.avatar
+        }));
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   // Load user profile on component mount
   useEffect(() => {
-    const loadUserProfile = async () => {
-      if (user) {
-        setLoading(true);
-        try {
-          const profile = await getUserProfile();
-          setUserInfo({
-            avatar: profile.photoURL || userInfo.avatar,
-            banner: userInfo.banner, // Keep default banner
-            name: profile.fullName,
-            email: profile.email,
-            phone: profile.phone,
-            address: profile.address,
-            city: profile.city,
-            country: profile.country
-          });
-        } catch (err) {
-          console.error('Failed to load profile:', err);
-          // Use user data from auth context as fallback
-          setUserInfo(prev => ({
-            ...prev,
-            name: user.displayName || '',
-            email: user.email || '',
-            avatar: user.photoURL || prev.avatar
-          }));
-        } finally {
-          setLoading(false);
-        }
-      }
-    };
-
     loadUserProfile();
   }, [user]);
 
@@ -74,6 +75,8 @@ export default function UserProfile() {
         photoURL: userInfo.avatar
       });
       setIsEditing(false);
+      // Reload profile to reflect changes
+      await loadUserProfile();
     } catch (err: any) {
       setError(err.message || 'Failed to update profile');
     } finally {
