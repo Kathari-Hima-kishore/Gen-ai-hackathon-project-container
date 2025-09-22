@@ -26,6 +26,7 @@ export default function UserProfile() {
     city: "",
     country: ""
   });
+  const [avatarUrl, setAvatarUrl] = useState(userInfo.avatar);
 
   // Load user profile function
   const loadUserProfile = async () => {
@@ -43,6 +44,7 @@ export default function UserProfile() {
           city: profile.city,
           country: profile.country
         });
+        setAvatarUrl(profile.photoURL || userInfo.avatar);
       } catch (err) {
         console.error('Failed to load profile:', err);
         // Use user data from auth context as fallback
@@ -52,6 +54,7 @@ export default function UserProfile() {
           email: user.email || '',
           avatar: user.photoURL || prev.avatar
         }));
+        setAvatarUrl(user.photoURL || userInfo.avatar);
       } finally {
         setLoading(false);
       }
@@ -111,6 +114,7 @@ export default function UserProfile() {
         const downloadURL = await uploadProfileImage(file);
         // Set the avatar to the permanent URL
         setUserInfo(prev => ({ ...prev, avatar: downloadURL }));
+        setAvatarUrl(downloadURL);
       } catch (err: any) {
         setError(err.message || 'Failed to upload image');
       } finally {
@@ -205,7 +209,7 @@ export default function UserProfile() {
               <label htmlFor="profile-upload" className="cursor-pointer block">
                 <div className="w-28 h-28 md:w-32 md:h-32 rounded-full overflow-hidden border-4 border-background shadow-lg hover:shadow-xl transition-shadow bg-background">
                   <img
-                    src={userInfo.avatar}
+                    src={avatarUrl}
                     alt="Profile"
                     className="w-full h-full object-cover"
                   />
