@@ -1,9 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
-import { fileURLToPath, URL } from "node:url";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Avoid using `import.meta.url` because the server is bundled to CJS by esbuild.
+// Use process.cwd() as the project root which works for both dev and production.
+const __dirname = process.cwd();
 
 export default defineConfig({
   plugins: [
