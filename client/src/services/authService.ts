@@ -7,7 +7,8 @@ import {
   sendEmailVerification,
   User
 } from 'firebase/auth';
-import { auth, googleAuthProvider } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { auth, googleAuthProvider, storage } from '@/lib/firebase';
 
 // Types for authentication
 export interface SignUpData {
@@ -198,6 +199,30 @@ export const checkEmailAvailability = async (email: string): Promise<boolean> =>
     }
     // For other errors, assume email is available
     return true;
+  }
+};
+
+// Upload profile image to Firebase Storage
+export const uploadProfileImage = async (file: File): Promise<string> => {
+  const user = auth.currentUser;
+  if (!user) {
+    throw new AuthError('No user is currently logged in');
+  }
+
+  try {
+    // Create a reference to the user's profile image
+    const imageRef = ref(storage, `profile-images/${user.uid}/profile.jpg`);
+    
+    // Upload the file
+    const snapshot = await uploadBytes(imageRef, file);
+    
+    // Get the download URL
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    
+    return downloadURL;
+  } catch (error: any) {
+    console.error('Image upload error:', error);
+    throw new AuthError('Failed to upload profile image');
   }
 };
 
