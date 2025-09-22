@@ -236,7 +236,21 @@ export const uploadProfileImage = async (file: File): Promise<string> => {
 
     return downloadURL;
   } catch (error: any) {
-    console.error('Firebase Storage upload failed, trying fallback:', error);
+    console.error('Firebase Storage upload failed:', error);
+
+    // Check if it's a CORS or network error
+    const isCorsError = error.code === 'storage/unauthorized' ||
+                       error.message?.includes('CORS') ||
+                       error.message?.includes('preflight') ||
+                       error.message?.includes('blocked by CORS') ||
+                       error.code === 'storage/canceled' ||
+                       error.name === 'TypeError';
+
+    if (isCorsError) {
+      console.log('CORS error detected, using localStorage fallback');
+    } else {
+      console.log('Non-CORS error, still trying fallback');
+    }
 
     // Fallback: Convert to base64 and store in localStorage
     try {
@@ -280,7 +294,21 @@ export const uploadBannerImage = async (file: File): Promise<string> => {
 
     return downloadURL;
   } catch (error: any) {
-    console.error('Firebase Storage banner upload failed, trying fallback:', error);
+    console.error('Firebase Storage banner upload failed:', error);
+
+    // Check if it's a CORS or network error
+    const isCorsError = error.code === 'storage/unauthorized' ||
+                       error.message?.includes('CORS') ||
+                       error.message?.includes('preflight') ||
+                       error.message?.includes('blocked by CORS') ||
+                       error.code === 'storage/canceled' ||
+                       error.name === 'TypeError';
+
+    if (isCorsError) {
+      console.log('CORS error detected, using localStorage fallback');
+    } else {
+      console.log('Non-CORS error, still trying fallback');
+    }
 
     // Fallback: Convert to base64 and store in localStorage
     try {
