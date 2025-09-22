@@ -37,14 +37,17 @@ export default function UserProfile() {
       setLoading(true);
       try {
         const profile = await getUserProfile();
-        
+
         // Get banner URL from localStorage first, then Firestore, then default
-        const storedBannerURL = localStorage.getItem(`banner_${currentUser.uid}`);
+        const storedBannerURL = localStorage.getItem(`banner_${currentUser.uid}`) || localStorage.getItem(`banner_image_${currentUser.uid}`);
         const bannerURL = storedBannerURL || profile.bannerURL || "";
         const bannerSrc = bannerURL || userInfo.banner;
-        
+
+        // Get profile image from localStorage as fallback
+        const storedProfileURL = localStorage.getItem(`profile_image_${currentUser.uid}`);
+
         setUserInfo({
-          avatar: currentUser.photoURL || userInfo.avatar,
+          avatar: storedProfileURL || currentUser.photoURL || userInfo.avatar,
           banner: bannerSrc,
           bannerURL: bannerURL,
           name: profile.fullName,
@@ -54,24 +57,25 @@ export default function UserProfile() {
           city: profile.city,
           country: profile.country
         });
-        setAvatarUrl(currentUser.photoURL || userInfo.avatar);
+        setAvatarUrl(storedProfileURL || currentUser.photoURL || userInfo.avatar);
       } catch (err) {
         console.error('Failed to load profile:', err);
         // Use localStorage as fallback
         const currentUser = auth.currentUser;
         if (currentUser) {
-          const storedBannerURL = localStorage.getItem(`banner_${currentUser.uid}`);
+          const storedBannerURL = localStorage.getItem(`banner_${currentUser.uid}`) || localStorage.getItem(`banner_image_${currentUser.uid}`);
+          const storedProfileURL = localStorage.getItem(`profile_image_${currentUser.uid}`);
           const bannerSrc = storedBannerURL || userInfo.banner;
-          
+
           setUserInfo(prev => ({
             ...prev,
             banner: bannerSrc,
             bannerURL: storedBannerURL || "",
+            avatar: storedProfileURL || currentUser.photoURL || prev.avatar,
             name: currentUser.displayName || '',
             email: currentUser.email || '',
-            avatar: currentUser.photoURL || prev.avatar
           }));
-          setAvatarUrl(currentUser.photoURL || userInfo.avatar);
+          setAvatarUrl(storedProfileURL || currentUser.photoURL || userInfo.avatar);
         }
       } finally {
         setLoading(false);
@@ -81,40 +85,44 @@ export default function UserProfile() {
 
   // Load user profile on component mount
   useEffect(() => {
-    // First, try to load banner from localStorage immediately
+    // First, try to load images from localStorage immediately
     const currentUser = auth.currentUser;
     if (currentUser) {
-      const storedBannerURL = localStorage.getItem(`banner_${currentUser.uid}`);
+      const storedBannerURL = localStorage.getItem(`banner_${currentUser.uid}`) || localStorage.getItem(`banner_image_${currentUser.uid}`);
+      const storedProfileURL = localStorage.getItem(`profile_image_${currentUser.uid}`);
+
       if (storedBannerURL) {
         setUserInfo(prev => ({ ...prev, banner: storedBannerURL, bannerURL: storedBannerURL }));
       }
+      if (storedProfileURL) {
+        setAvatarUrl(storedProfileURL);
+      }
     }
-    
+
     loadUserProfile();
   }, [user]);
 
   const handleSave = async () => {
     if (!user) return;
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
+      // Get localStorage images to save to Firestore
+      const storedBannerURL = localStorage.getItem(`banner_image_${user.uid}`);
+      const storedProfileURL = localStorage.getItem(`profile_image_${user.uid}`);
+
       await updateUserProfileData({
         fullName: userInfo.name,
-        photoURL: userInfo.avatar,
-        bannerURL: userInfo.bannerURL,
+        photoURL: storedProfileURL || userInfo.avatar,
+        bannerURL: storedBannerURL || userInfo.bannerURL,
         phone: userInfo.phone,
         address: userInfo.address,
         city: userInfo.city,
         country: userInfo.country
       });
-      
-      // Also store in localStorage as backup
-      if (userInfo.bannerURL) {
-        localStorage.setItem(`banner_${user.uid}`, userInfo.bannerURL);
-      }
-      
+
       setIsEditing(false);
       // Reload profile to reflect changes
       await loadUserProfile();
