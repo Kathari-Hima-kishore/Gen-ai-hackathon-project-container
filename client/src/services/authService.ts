@@ -8,7 +8,8 @@ import {
   User
 } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth, googleAuthProvider, storage } from '@/lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, googleAuthProvider, storage, db } from '@/lib/firebase';
 
 // Types for authentication
 export interface SignUpData {
@@ -21,6 +22,18 @@ export interface SignUpData {
 export interface SignInData {
   email: string;
   password: string;
+}
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  fullName: string;
+  photoURL: string;
+  bannerURL?: string;
+  phone: string;
+  address: string;
+  city: string;
+  country: string;
 }
 
 // Authentication error handling
@@ -228,10 +241,39 @@ export const uploadProfileImage = async (file: File): Promise<string> => {
   }
 };
 
+// Upload banner image to Firebase Storage
+export const uploadBannerImage = async (file: File): Promise<string> => {
+  const user = auth.currentUser;
+  if (!user) {
+    throw new AuthError('No user is currently logged in');
+  }
+
+  try {
+    // Create a reference to the user's banner image
+    const imageRef = ref(storage, `profile-images/${user.uid}/banner.jpg`);
+    
+    // Upload the file
+    const snapshot = await uploadBytes(imageRef, file);
+    
+    // Get the download URL
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    
+    return downloadURL;
+  } catch (error: any) {
+    console.error('Banner upload error:', error);
+    throw new AuthError('Failed to upload banner image');
+  }
+};
+
 // Enhanced profile update 
 export const updateUserProfileData = async (profileData: {
   fullName?: string;
   photoURL?: string;
+  bannerURL?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  country?: string;
 }): Promise<void> => {
   const user = auth.currentUser;
   if (!user) {
@@ -254,6 +296,20 @@ export const updateUserProfileData = async (profileData: {
       await user.reload();
     }
 
+    // Update Firestore profile data
+    const profileRef = doc(db, 'users', user.uid);
+    const firestoreData: Partial<UserProfile> = {};
+    
+    if (profileData.bannerURL !== undefined) firestoreData.bannerURL = profileData.bannerURL;
+    if (profileData.phone !== undefined) firestoreData.phone = profileData.phone;
+    if (profileData.address !== undefined) firestoreData.address = profileData.address;
+    if (profileData.city !== undefined) firestoreData.city = profileData.city;
+    if (profileData.country !== undefined) firestoreData.country = profileData.country;
+
+    if (Object.keys(firestoreData).length > 0) {
+      await setDoc(profileRef, firestoreData, { merge: true });
+    }
+
     console.log('Profile updated successfully');
   } catch (error: any) {
     console.error('Profile update error:', error);
@@ -262,23 +318,41 @@ export const updateUserProfileData = async (profileData: {
 };
 
 // Get user profile data
-export const getUserProfile = async () => {
+export const getUserProfile = async (): Promise<UserProfile> => {
   const user = auth.currentUser;
   if (!user) {
     throw new AuthError('No user is currently logged in');
   }
 
   try {
-    let profile = {
+    // Get data from Firebase Auth
+    let profile: UserProfile = {
       uid: user.uid,
       email: user.email || '',
       fullName: user.displayName || '',
       photoURL: user.photoURL || '',
+      bannerURL: '',
       phone: '',
       address: '',
       city: '',
       country: ''
     };
+
+    // Get additional data from Firestore
+    const profileRef = doc(db, 'users', user.uid);
+    const profileSnap = await getDoc(profileRef);
+    
+    if (profileSnap.exists()) {
+      const firestoreData = profileSnap.data();
+      profile = {
+        ...profile,
+        bannerURL: firestoreData.bannerURL || '',
+        phone: firestoreData.phone || '',
+        address: firestoreData.address || '',
+        city: firestoreData.city || '',
+        country: firestoreData.country || ''
+      };
+    }
 
     return profile;
   } catch (error: any) {
